@@ -124,7 +124,7 @@ def imporved_kshell(G):
 
 def get_distribution(measure,datasets, alpha, adj):
     """ Compute the p_i probabilities to pick each node i through the
-    node sampling scheme of FastGAE (see subsection 3.2.3. of paper)
+    node sampling scheme of cevae (see subsection 3.2.3. of paper)
     :param measure: node importance measure, among 'degree', 'core', 'uniform' and so on
     :param alpha: alpha scalar hyperparameter for degree and core sampling
     :param adj: sparse adjacency matrix of the graph
