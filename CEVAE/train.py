@@ -64,9 +64,9 @@ flags.DEFINE_integer('hidden', 32, 'Number of units in GCN hidden layer')
 flags.DEFINE_integer('dimension', 16, 'Dimension of encoder output, i.e.  embedding dimension')
 #32  16#
 # Model of GAE parameters
-# flags.DEFINE_boolean('fastgae', True, 'Whether to use the FastGAE framework')
+# flags.DEFINE_boolean('cevae', True, 'Whether to use the cevae framework')
 
-flags.DEFINE_string('fastgae', 'sn', 'Whether to use the FastGAE framework')
+flags.DEFINE_string('cevae', 'sn', 'Whether to use the cevae framework')
 flags.DEFINE_integer('nb_node_samples', 300, 'Number of nodes to sample at each iteration, i.e. sampled subgraph size')
 flags.DEFINE_integer('node_start', 0, 'Number of index nodes to sample at the beginning')
 flags.DEFINE_string('measure', 'core', 'Node importance measure used in sampling: degree, core or uniform')
@@ -88,7 +88,7 @@ flags.DEFINE_integer('times', 1, 'repeated for demonstrating small world propert
 
 
 # Lists to average final results
-if FLAGS.fastgae:
+if FLAGS.cevae:
     mean_time_proba_computation = []
 if FLAGS.task == 'link_prediction':
     mean_roc = []
@@ -166,8 +166,8 @@ for _ in range(1):
         # Start computation of running times
         t_start = time.time()
 
-        # FastGAE: node sampling for stochastic subgraph decoding
-        if FLAGS.fastgae =='sn':
+        # cevae: node sampling for stochastic subgraph decoding
+        if FLAGS.cevae =='sn':
             #Node sampling by centrality probability
             if FLAGS.verbose:
                 print("Computing p_i distribution for", FLAGS.measure, "sampling")
@@ -180,27 +180,27 @@ for _ in range(1):
             
 
 
-        elif FLAGS.fastgae == 'tn':
+        elif FLAGS.cevae == 'tn':
             sampled_nodes, adj_label, adj_sampled_sparse = top_nodes_sampling(adj,FLAGS.dataset, FLAGS.measure, FLAGS.nb_node_samples)
         
-        elif FLAGS.fastgae == 'un':
+        elif FLAGS.cevae == 'un':
             sampled_nodes, adj_label, adj_sampled_sparse = node_uniform_sampling(adj, FLAGS.nb_node_samples, FLAGS.replace)
         
-        elif FLAGS.fastgae =='rn':
+        elif FLAGS.cevae =='rn':
             #Update sampled subgraph
             node_distribution =  get_distribution(FLAGS.measure,FLAGS.dataset, FLAGS.alpha, adj)
             sampled_nodes, adj_label, adj_sampled_sparse = node_sampling_with_rejection(adj, node_distribution, FLAGS.nb_node_samples, FLAGS.replace) 
-        elif FLAGS.fastgae =='gn':
+        elif FLAGS.cevae =='gn':
             node_distribution =  get_distribution(FLAGS.measure,FLAGS.dataset, FLAGS.alpha, adj)
             sampled_nodes, adj_label, adj_sampled_sparse = node_sampling_gn(adj, node_distribution, FLAGS.nb_node_samples, FLAGS.num_layers,FLAGS.replace) 
 
-        elif FLAGS.fastgae =='mcmc':
+        elif FLAGS.cevae =='mcmc':
             node_distribution =  get_distribution(FLAGS.measure,FLAGS.dataset, FLAGS.alpha, adj)
             sampled_nodes, adj_label, adj_sampled_sparse = mcmc_node_sampling(adj, node_distribution,FLAGS.nb_node_samples, FLAGS.replace)
             
 
 
-        elif FLAGS.fastgae =='sparse':
+        elif FLAGS.cevae =='sparse':
             # node_sparse_sampling(adj,datasets,measure,num_sampled_nodes,node_start) ,average_centrality
             sampled_nodes, adj_label, adj_sampled_sparse,average_centrality = node_sparse_sampling(adj,FLAGS.dataset, FLAGS.measure, FLAGS.nb_node_samples,FLAGS.node_start)
             mean_centrality.append(average_centrality)
@@ -244,7 +244,7 @@ for _ in range(1):
 
         # Optimizer
         strategies = ['sn','tn','sparse','rn','gn','mcmc']
-        if FLAGS.fastgae in strategies:
+        if FLAGS.cevae in strategies:
             num_sampled = adj_sampled_sparse.shape[0]
             sum_sampled = adj_sampled_sparse.sum()
             if sum_sampled ==0:
@@ -278,7 +278,7 @@ for _ in range(1):
 
         # Normalization and preprocessing on adjacency matrix
         adj_norm = preprocess_graph(adj)
-        if not FLAGS.fastgae:
+        if not FLAGS.cevae:
             adj_label = sparse_to_tuple(adj + sp.eye(num_nodes))
 
         # Initialize TF session
@@ -295,37 +295,37 @@ for _ in range(1):
             # Construct feed dictionary
             feed_dict = construct_feed_dict(adj_norm, adj_label, features, placeholders)
 
-            if FLAGS.fastgae == 'sn':
+            if FLAGS.cevae == 'sn':
                 # Update sampled subgraph
                 feed_dict.update({placeholders['sampled_nodes']: sampled_nodes})
                 # New node sampling
                 sampled_nodes, adj_label, _ =  node_sampling(adj, node_distribution,FLAGS.nb_node_samples, FLAGS.replace)#sampled_nodes, adj_label, adj_sampled_sparse
 
-            elif FLAGS.fastgae == 'tn':
+            elif FLAGS.cevae == 'tn':
                 # Update sampled subgraph
                 feed_dict.update({placeholders['sampled_nodes']: sampled_nodes})
                 # Node sampling but the nodes is stational
                 sampled_nodes, adj_label, _ =  top_nodes_sampling(adj,FLAGS.dataset, FLAGS.measure, FLAGS.nb_node_samples)
-            elif FLAGS.fastgae == 'un':
+            elif FLAGS.cevae == 'un':
                 feed_dict.update({placeholders['sampled_nodes']: sampled_nodes})
                 sampled_nodes, adj_label, adj_sampled_sparse = sampled_nodes, adj_label, adj_sampled_sparse #node_uniform_sampling(adj, FLAGS.nb_node_samples, FLAGS.replace)
 
-            elif FLAGS.fastgae =='mcmc':
+            elif FLAGS.cevae =='mcmc':
                 feed_dict.update({placeholders['sampled_nodes']: sampled_nodes})
                 sampled_nodes, adj_label, adj_sampled_sparse = mcmc_node_sampling(adj, node_distribution,FLAGS.nb_node_samples, FLAGS.replace)
-            elif FLAGS.fastgae =='gn':
+            elif FLAGS.cevae =='gn':
                 # node_distribution =  get_distribution(FLAGS.measure,FLAGS.dataset, FLAGS.alpha, adj)
                 feed_dict.update({placeholders['sampled_nodes']: sampled_nodes})
                 sampled_nodes, adj_label, adj_sampled_sparse = node_sampling_gn(adj, node_distribution, FLAGS.nb_node_samples, FLAGS.num_layers,FLAGS.replace) 
 
 
-            elif FLAGS.fastgae =='rn':
+            elif FLAGS.cevae =='rn':
                 #Update sampled subgraph
                 feed_dict.update({placeholders['sampled_nodes']:sampled_nodes})
                 sampled_nodes, adj_label, _ = node_sampling_with_rejection(adj, node_distribution, FLAGS.nb_node_samples, FLAGS.replace) 
 
 
-            elif FLAGS.fastgae =='sparse':
+            elif FLAGS.cevae =='sparse':
                 # node_sparse_sampling(adj,datasets,measure,num_sampled_nodes,node_start)
                 sampled_nodes, adj_label, _, _  = node_sparse_sampling(adj,FLAGS.dataset, FLAGS.measure, FLAGS.nb_node_samples,FLAGS.node_start)
 
@@ -397,7 +397,7 @@ for _ in range(1):
     sparse_array.append(np.mean(sparse_arr))
     similarity.append(np.mean(mean_similar))
 
-    if FLAGS.fastgae =='rn':
+    if FLAGS.cevae =='rn':
         break
 path = '/public/chenjiawen/tst/cndp/sampled/%s/node/'%(FLAGS.dataset)
 if not os.path.exists(path):
@@ -405,7 +405,7 @@ if not os.path.exists(path):
         os.makedirs(path)
     except OSError as error:
         print(f"Failed to create directory {path}. Error: {error}")
-file = '/public/chenjiawen/tst/cndp/sampled/%s/node/%s_%s_%s_%s_%s_%s.npy'%(FLAGS.dataset,FLAGS.dataset,FLAGS.times,FLAGS.fastgae,FLAGS.model,FLAGS.measure,FLAGS.nb_node_samples)
+file = '/public/chenjiawen/tst/cndp/sampled/%s/node/%s_%s_%s_%s_%s_%s.npy'%(FLAGS.dataset,FLAGS.dataset,FLAGS.times,FLAGS.cevae,FLAGS.model,FLAGS.measure,FLAGS.nb_node_samples)
 np.save(file,sampled_nodes)
 np.save('sampled_nodes.npy', sampled_nodes)
 
@@ -436,21 +436,21 @@ if FLAGS.task == 'link_prediction':
     # Save the link_prediction results
 
  
-    if FLAGS.fastgae =='sparse':
+    if FLAGS.cevae =='sparse':
         filename = '/public/chenjiawen/tst/cndp/sampled/%s/accuracy/%s_%s_%s_sparse_lp_test.txt'%(FLAGS.dataset,FLAGS.dataset,FLAGS.model,FLAGS.measure)
         file = open(filename,'a')
         file.write('%s  %f   %f  %f  %f  %f  %f  %f  %f  '% (FLAGS.nb_node_samples,np.mean(sparse_arr), np.mean(mean_centrality) ,FLAGS.alpha,np.mean(mean_roc),np.std(mean_roc),np.mean(mean_ap),np.std(mean_ap),np.mean(mean_time) ))
         file.write('\n')
         file.close()
-    elif FLAGS.fastgae in ['sn','rn','tn','mcmc','gn']:
+    elif FLAGS.cevae in ['sn','rn','tn','mcmc','gn']:
         path = '/public/chenjiawen/tst/cndp/sampled/%s/accuracy/'%(FLAGS.dataset)
         if not os.path.exists(path):
             try:
                 os.makedirs(path)
             except OSError as error:
                 print(f"Failed to create directory {path}. Error: {error}")
-        # filename = '/public/chenjiawen/tst/cndp/sampled/%s/accuracy/%s_%s_%s_%s_lp_test.txt'%(FLAGS.dataset,FLAGS.dataset,FLAGS.model,FLAGS.measure,FLAGS.fastgae)
-        filename = '/public/chenjiawen/tst/cndp/sampled/%s/accuracy/%s_%s_%s_lp_test.txt'%(FLAGS.dataset,FLAGS.dataset,FLAGS.model,FLAGS.fastgae)
+        # filename = '/public/chenjiawen/tst/cndp/sampled/%s/accuracy/%s_%s_%s_%s_lp_test.txt'%(FLAGS.dataset,FLAGS.dataset,FLAGS.model,FLAGS.measure,FLAGS.cevae)
+        filename = '/public/chenjiawen/tst/cndp/sampled/%s/accuracy/%s_%s_%s_lp_test.txt'%(FLAGS.dataset,FLAGS.dataset,FLAGS.model,FLAGS.cevae)
         file = open(filename,'a')
         file.write('%s  %s  %f  %f  %f  %f  %f  %f  %f  %f  %f  %f  %f  %f  %f  %f\n' % (
             FLAGS.nb_node_samples,
@@ -472,7 +472,7 @@ if FLAGS.task == 'link_prediction':
         ))
         # file.write('\n')
         file.close()
-    elif FLAGS.fastgae =='un':
+    elif FLAGS.cevae =='un':
         path = '/public/chenjiawen/tst/cndp/sampled/%s/accuracy/'%(FLAGS.dataset)
         if not os.path.exists(path):
             try:
@@ -488,14 +488,14 @@ if FLAGS.task == 'link_prediction':
         raise ValueError('Undefined Strategy!')
     
     
-if FLAGS.fastgae in  ['un','sn','tn','rn','gn','mcmc']:
+if FLAGS.cevae in  ['un','sn','tn','rn','gn','mcmc']:
     path = '/public/chenjiawen/tst/cndp/sampled/%s/similar/'%(FLAGS.dataset)
     if not os.path.exists(path):
         try:
             os.makedirs(path)
         except OSError as error:
             print(f"Failed to create directory {path}. Error: {error}")
-    filename = '/public/chenjiawen/tst/cndp/sampled/%s/similar/%s_%s_%s_%s_%s_similar.txt' % (FLAGS.dataset,FLAGS.dataset,FLAGS.fastgae, FLAGS.model, FLAGS.measure, FLAGS.alpha)
+    filename = '/public/chenjiawen/tst/cndp/sampled/%s/similar/%s_%s_%s_%s_%s_similar.txt' % (FLAGS.dataset,FLAGS.dataset,FLAGS.cevae, FLAGS.model, FLAGS.measure, FLAGS.alpha)
     file = open(filename, 'a')
     file.write('%s     %f   %f   '%(FLAGS.nb_node_samples,np.mean(similarity),np.std(similarity)))
     file.write('\n')
