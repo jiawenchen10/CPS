@@ -76,8 +76,8 @@ class GCNModelAE(Model):
                                        dropout = self.dropout,
                                        logging = self.logging)(self.hidden)
 
-        self.reconstructions = InnerProductDecoder(fastgae = FLAGS.fastgae, # Whether to use FastGAE
-                                                   sampled_nodes = self.sampled_nodes, # FastGAE subgraph
+        self.reconstructions = InnerProductDecoder(cevae = FLAGS.cevae, # Whether to use cevae
+                                                   sampled_nodes = self.sampled_nodes, # cevae subgraph
                                                    act = lambda x: x,
                                                    logging = self.logging)(self.z_mean)
 
@@ -124,8 +124,8 @@ class GCNModelVAE(Model):
 
         self.z = self.z_mean + tf.random_normal([self.n_samples, FLAGS.dimension]) * tf.exp(self.z_log_std)
 
-        self.reconstructions = InnerProductDecoder(fastgae = FLAGS.fastgae, # Whether to use FastGAE
-                                                   sampled_nodes = self.sampled_nodes, # FastGAE subgraph
+        self.reconstructions = InnerProductDecoder(cevae = FLAGS.cevae, # Whether to use cevae
+                                                   sampled_nodes = self.sampled_nodes, # cevae subgraph
                                                    act = lambda x: x,
                                                    logging = self.logging)(self.z_mean)
 
@@ -168,7 +168,7 @@ class DeepGCNModelAE(Model):
                                        dropout = self.dropout,
                                        logging = self.logging)(self.hidden2)
 
-        self.reconstructions = InnerProductDecoder(fastgae = FLAGS.fastgae,
+        self.reconstructions = InnerProductDecoder(cevae = FLAGS.cevae,
                                                    sampled_nodes = self.sampled_nodes,
                                                    act = lambda x: x,
                                                    logging = self.logging)(self.z_mean)
@@ -224,7 +224,7 @@ class DeepGCNModelVAE(Model):
 
         self.z = self.z_mean + tf.random_normal([self.n_samples, FLAGS.dimension]) * tf.exp(self.z_log_std)
 
-        self.reconstructions = InnerProductDecoder(fastgae = FLAGS.fastgae,
+        self.reconstructions = InnerProductDecoder(cevae = FLAGS.cevae,
                                                    sampled_nodes = self.sampled_nodes,
                                                    act = lambda x: x,
                                                    logging = self.logging)(self.z)
