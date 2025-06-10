@@ -1,23 +1,22 @@
 from evaluation import get_roc_score, clustering_latent_space,sigmoid
 from input_data import load_data, load_label
-from model import * # GCNModelAE, GCNModelVAE,GravityGCNModelAE,GravityGCNModelVAE,DeepGCNModelAE,DeepGCNModelVAE,
+from model import * 
 from optimizer import OptimizerAE, OptimizerVAE
 from preprocessing import *
 from sampling import get_distribution, node_sampling,top_nodes_sampling,node_sparse_sampling,node_sampling_with_rejection,mcmc_node_sampling,node_uniform_sampling ,node_sampling_gn
 
-from network_property import fit_power_law, subgraph_property
+from network_property import fit_power_law,  subgraph_property,  calculate_js_divergence, calculate_kl_divergence,  calculate_heterogeneity_diff
 import numpy as np
 import os
 import scipy.sparse as sp
-#import tensorflow as tf
-import tensorflow.compat.v1 as tf  # 由于使用了placeholder，所以使用该句及下句语句
+import tensorflow.compat.v1 as tf 
 tf.disable_v2_behavior()
 import networkx as nx
 import time
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-os.environ['CUDA_VISIBLE_DEVICES'] = "0,1"
-#tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
+os.environ['CUDA_VISIBLE_DEVICES'] = "0"
+
 # Set TensorFlow to use only one CPU core
 tf.config.threading.set_inter_op_parallelism_threads(1)
 tf.config.threading.set_intra_op_parallelism_threads(1)
@@ -28,7 +27,7 @@ FLAGS = flags.FLAGS
 gpus = tf.config.experimental.list_physical_devices('GPU')
 
 # Select graph dataset
-flags.DEFINE_string('dataset', 'cora', 'Name of the graph dataset')
+flags.DEFINE_string('dataset', 'ba3k_30', 'Name of the graph dataset')
 ''' Available datasets:
 
 - cora: Cora scientific publications citation network, from LINQS
@@ -54,10 +53,11 @@ flags.DEFINE_string('model', 'gcn_vae', 'Name of the model')
 # Model parameters
 flags.DEFINE_float('dropout', 0., 'Dropout rate (1 - keep probability)')
 #cora=0.2
-flags.DEFINE_integer('iterations', 200, 'Number of iterations in training')
+flags.DEFINE_integer('iterations', 200, 'Number of iterations in training for samples')
 flags.DEFINE_boolean('features', True, 'Include node features or not in encoder')
 flags.DEFINE_float('learning_rate', 0.001, 'Initial learning rate (with Adam)')#0.001
-# cora, citeseer, pubmed 0.01
+# cora, citeseer,  0.01
+# pubmed 0.007
 # protein 0.05
 # cath cmat enron 0.005
 flags.DEFINE_integer('hidden', 32, 'Number of units in GCN hidden layer')
@@ -66,7 +66,7 @@ flags.DEFINE_integer('dimension', 16, 'Dimension of encoder output, i.e.  embedd
 # Model of GAE parameters
 # flags.DEFINE_boolean('cevae', True, 'Whether to use the cevae framework')
 
-flags.DEFINE_string('cevae', 'sn', 'Whether to use the cevae framework')
+flags.DEFINE_string('cevae', 'rn', 'Whether to use the cevae framework')
 flags.DEFINE_integer('nb_node_samples', 300, 'Number of nodes to sample at each iteration, i.e. sampled subgraph size')
 flags.DEFINE_integer('node_start', 0, 'Number of index nodes to sample at the beginning')
 flags.DEFINE_string('measure', 'core', 'Node importance measure used in sampling: degree, core or uniform')
@@ -76,6 +76,7 @@ flags.DEFINE_boolean('normalize', False, 'Whether to normalize embedding  vector
 flags.DEFINE_float('epsilon', 0.01, 'Add epsilon to distances computations in gravity models, for numerical stability')
 # Experimental setup parameters
 flags.DEFINE_integer('nb_run', 1, 'Number of model run + test')
+flags.DEFINE_integer('iteration', 3, 'Number of iterations for the experimental set')
 flags.DEFINE_float('prop_val', 5., 'Proportion of edges in validation set  (for Link Prediction task)')
 #prop_val = 5.0  prop_test = 10.
 flags.DEFINE_float('prop_test', 10., 'Proportion of edges in test set (for Link Prediction task)')
@@ -123,14 +124,14 @@ mean_error = []
 mean_centrality = []
 sparse_array = []
 
-
 auc = []
 ap = []
 times = []
 similarity = []
 
 
-for _ in range(1):
+
+for _ in range(FLAGS.iteration):
     for i in range(FLAGS.nb_run):
 
         # Preprocessing and initialization steps
@@ -141,16 +142,11 @@ for _ in range(1):
         if FLAGS.task == 'link_prediction' :
             # Compute Train/Validation/Test sets
             adj, val_edges, val_edges_false, test_edges, test_edges_false = mask_test_edges(adj_init, FLAGS.prop_test, FLAGS.prop_val)
-            G = nx.from_scipy_sparse_array(adj)
-            # G = nx.from_numpy_array(adj.toarray())
+            
         else:
             adj = adj_init
-            G = nx.from_scipy_sparse_array(adj)
-            # G = nx.from_numpy_array(adj.toarray())
-
+             
         # Compute number of nodes
-
-
         num_nodes = adj.shape[0]
 
         # Preprocessing on node features
@@ -161,7 +157,7 @@ for _ in range(1):
             features = sp.identity(num_nodes)
         features = sparse_to_tuple(features)
         num_features = features[2][1]
-        features_nonzero = features[1].shape[0]
+        features_nonzero = features[1].shape[0]     
 
         # Start computation of running times
         t_start = time.time()
@@ -211,7 +207,6 @@ for _ in range(1):
         
 
 
-        # 保存采样的节点集合
         # common = np.intersect1d(sampled_nodes,sampled_nodes1)
         # print('Number of common elements',common.size/sampled_nodes.shape[0])
         # print('Test Done! ')
@@ -353,10 +348,7 @@ for _ in range(1):
             emb = sess.run(model.z_mean, feed_dict = feed_dict)
         # Get property from subgraph in the adj
             
-            subgraph = G.subgraph(sampled_nodes)
-            density = nx.density(subgraph)
-            sparsity = 1 - density
-            sparse_arr.append(density)
+
 
             intersection = np.intersect1d(sampled_nodes, sampled_nodes1)
             union = np.union1d(sampled_nodes, sampled_nodes1)
@@ -365,12 +357,7 @@ for _ in range(1):
 
         # Compute total running time
         mean_time.append(time.time() - t_start)
-        
-
-
-
             
-    
         # Test model
         if FLAGS.verbose:
             print("Testing model...")
@@ -390,7 +377,13 @@ for _ in range(1):
             mi_score = clustering_latent_space(emb, labels)
             # Report Adjusted Mutual Information (AMI)
             mean_mutual_info.append(mi_score)
-    
+
+
+    G = nx.from_scipy_sparse_array(adj)
+    subgraph = G.subgraph(sampled_nodes)
+    density = nx.density(subgraph)
+    sparsity = 1 - density
+    sparse_arr.append(density)    
     auc.append(np.mean(mean_roc))
     ap.append(np.mean(mean_ap))
     times.append(np.mean(mean_time))
@@ -399,25 +392,28 @@ for _ in range(1):
 
     if FLAGS.cevae =='rn':
         break
-path = '/public/chenjiawen/tst/cndp/sampled/%s/node/'%(FLAGS.dataset)
+
+    
+path = 'cevae/results_lp/%s/node/'%(FLAGS.dataset)
 if not os.path.exists(path):
     try:
         os.makedirs(path)
     except OSError as error:
         print(f"Failed to create directory {path}. Error: {error}")
-file = '/public/chenjiawen/tst/cndp/sampled/%s/node/%s_%s_%s_%s_%s_%s.npy'%(FLAGS.dataset,FLAGS.dataset,FLAGS.times,FLAGS.cevae,FLAGS.model,FLAGS.measure,FLAGS.nb_node_samples)
+file = 'cevae/results_lp/%s/node/%s_%s_%s_%s_%s_%s.npy'%(FLAGS.dataset,FLAGS.dataset,FLAGS.times,FLAGS.cevae,FLAGS.model,FLAGS.measure,FLAGS.nb_node_samples)
 np.save(file,sampled_nodes)
 np.save('sampled_nodes.npy', sampled_nodes)
 
 
-subgraph = G.subgraph(sampled_nodes)
+# subgraph = G.subgraph(sampled_nodes)
 coeff_sub = fit_power_law(subgraph)
 coeff_G = fit_power_law(G)
 coeff_diff = np.abs(coeff_sub - coeff_G)
 r_L,r_C, sparsity, avg_degree, avg_cluster, avg_spl = subgraph_property(subgraph)
-
-
-
+gini_diff, entropy_diff = calculate_heterogeneity_diff(G, subgraph)
+js_divergence = calculate_js_divergence(subgraph,G)  
+kl_divergence1 , kl_divergence2   =  calculate_kl_divergence(subgraph,G) 
+ 
 
 # Report final results
 print("\n Test results for", FLAGS.model,
@@ -437,51 +433,76 @@ if FLAGS.task == 'link_prediction':
 
  
     if FLAGS.cevae =='sparse':
-        filename = '/public/chenjiawen/tst/cndp/sampled/%s/accuracy/%s_%s_%s_sparse_lp_test.txt'%(FLAGS.dataset,FLAGS.dataset,FLAGS.model,FLAGS.measure)
+        filename = 'cevae/results_lp/%s/accuracy/%s_%s_%s_sparse_lp_test.txt'%(FLAGS.dataset,FLAGS.dataset,FLAGS.model,FLAGS.measure)
         file = open(filename,'a')
         file.write('%s  %f   %f  %f  %f  %f  %f  %f  %f  '% (FLAGS.nb_node_samples,np.mean(sparse_arr), np.mean(mean_centrality) ,FLAGS.alpha,np.mean(mean_roc),np.std(mean_roc),np.mean(mean_ap),np.std(mean_ap),np.mean(mean_time) ))
         file.write('\n')
         file.close()
     elif FLAGS.cevae in ['sn','rn','tn','mcmc','gn']:
-        path = '/public/chenjiawen/tst/cndp/sampled/%s/accuracy/'%(FLAGS.dataset)
+        path = 'cevae/results_lp/%s/accuracy/'%(FLAGS.dataset)
         if not os.path.exists(path):
             try:
                 os.makedirs(path)
             except OSError as error:
                 print(f"Failed to create directory {path}. Error: {error}")
-        # filename = '/public/chenjiawen/tst/cndp/sampled/%s/accuracy/%s_%s_%s_%s_lp_test.txt'%(FLAGS.dataset,FLAGS.dataset,FLAGS.model,FLAGS.measure,FLAGS.cevae)
-        filename = '/public/chenjiawen/tst/cndp/sampled/%s/accuracy/%s_%s_%s_lp_test.txt'%(FLAGS.dataset,FLAGS.dataset,FLAGS.model,FLAGS.cevae)
+        # filename = 'cevae/results_lp/%s/accuracy/%s_%s_%s_%s_lp_test.txt'%(FLAGS.dataset,FLAGS.dataset,FLAGS.model,FLAGS.measure,FLAGS.cevae)
+        filename = 'cevae/results_lp/%s/accuracy/%s_%s_%s_lp_test.txt'%(FLAGS.dataset,FLAGS.dataset,FLAGS.model,FLAGS.cevae)
         file = open(filename,'a')
-        file.write('%s  %s  %f  %f  %f  %f  %f  %f  %f  %f  %f  %f  %f  %f  %f  %f\n' % (
+        file.write('%s  %s  %f  %f  %f  %f  %f  %f  %f  %f  %f  %f  %f  %f  %f  %f  %f  %f  %f  %f  %f\n' % (
             FLAGS.nb_node_samples,
             FLAGS.measure,
-            sparsity,
-            avg_degree,
-            avg_cluster,
-            avg_spl,
-            coeff_diff,
-            r_C,
-            r_L,
-            FLAGS.alpha,
-            np.mean(auc),
-            np.std(auc),
-            np.mean(ap),
-            np.std(ap),
-            np.mean(times),
-            np.std(times)
+            safe_value(sparsity),
+            safe_value(avg_degree),
+            safe_value(avg_cluster),
+            safe_value(avg_spl),
+            safe_value(coeff_diff),
+            safe_value(r_C),
+            safe_value(r_L),
+            safe_value(kl_divergence1),
+            safe_value(kl_divergence2),
+            safe_value(js_divergence),
+            safe_value(gini_diff),
+            safe_value(entropy_diff),
+            safe_value(FLAGS.alpha),
+            safe_value(np.mean(auc)),
+            safe_value(np.std(auc)),
+            safe_value(np.mean(ap)),
+            safe_value(np.std(ap)),
+            safe_value(np.mean(times)),
+            safe_value(np.std(times))
         ))
         # file.write('\n')
         file.close()
     elif FLAGS.cevae =='un':
-        path = '/public/chenjiawen/tst/cndp/sampled/%s/accuracy/'%(FLAGS.dataset)
+        path = 'cevae/results_lp/%s/accuracy/'%(FLAGS.dataset)
         if not os.path.exists(path):
             try:
                 os.makedirs(path)
             except OSError as error:
                 print(f"Failed to create directory {path}. Error: {error}")
-        filename = '/public/chenjiawen/tst/cndp/sampled/%s/accuracy/%s_%s_%s_un_lp_test.txt'%(FLAGS.dataset,FLAGS.dataset,FLAGS.model,FLAGS.measure)
+        filename = 'cevae/results_lp/%s/accuracy/%s_%s_%s_un_lp_test.txt'%(FLAGS.dataset,FLAGS.dataset,FLAGS.model,FLAGS.measure)
         file = open(filename,'a')
-        file.write('%s  %f  %f   %f   %f   %f  %f   %f  %f  %f  %f  %f'% (FLAGS.nb_node_samples,np.mean(sparse_array), coeff_diff ,r_C,r_L, FLAGS.alpha,np.mean(auc),np.std(auc),np.mean(ap),np.std(ap),np.mean(times),np.std(times) ))
+        file.write('%s  %f  %f   %f   %f   %f  %f   %f  %f  %f  %f  %f  %f  %f  %f  %f  %f'% 
+                   (FLAGS.nb_node_samples,
+                    np.mean(sparse_array), 
+                    coeff_diff ,
+                    r_C ,
+                    r_L , 
+                    kl_divergence1,
+                    kl_divergence2,
+                    js_divergence,
+                    gini_diff,
+                    entropy_diff,
+                    FLAGS.alpha ,
+                    np.mean(auc), 
+                    np.std(auc), 
+                    np.mean(ap), 
+                    np.std(ap), 
+                    np.mean(times),
+                    np.std(times) 
+            )
+        )
+
         file.write('\n')
         file.close()
     else:
@@ -489,13 +510,13 @@ if FLAGS.task == 'link_prediction':
     
     
 if FLAGS.cevae in  ['un','sn','tn','rn','gn','mcmc']:
-    path = '/public/chenjiawen/tst/cndp/sampled/%s/similar/'%(FLAGS.dataset)
+    path = 'cevae/results_lp/%s/similar/'%(FLAGS.dataset)
     if not os.path.exists(path):
         try:
             os.makedirs(path)
         except OSError as error:
             print(f"Failed to create directory {path}. Error: {error}")
-    filename = '/public/chenjiawen/tst/cndp/sampled/%s/similar/%s_%s_%s_%s_%s_similar.txt' % (FLAGS.dataset,FLAGS.dataset,FLAGS.cevae, FLAGS.model, FLAGS.measure, FLAGS.alpha)
+    filename = 'cevae/results_lp/%s/similar/%s_%s_%s_%s_%s_similar.txt' % (FLAGS.dataset,FLAGS.dataset,FLAGS.cevae, FLAGS.model, FLAGS.measure, FLAGS.alpha)
     file = open(filename, 'a')
     file.write('%s     %f   %f   '%(FLAGS.nb_node_samples,np.mean(similarity),np.std(similarity)))
     file.write('\n')
@@ -509,7 +530,7 @@ else:
     print("Adjusted MI scores\n", mean_mutual_info)
     print("Mean Adjusted MI score: ", np.mean(mean_mutual_info),
           "\n Std of Adjusted MI scores: ", np.std(mean_mutual_info), "\n \n")
-    filename = '/public/chenjiawen/tst/cndp/sampled/%s_%s_%s_node cluster_test.txt'%(FLAGS.dataset,FLAGS.model,FLAGS.measure)
+    filename = 'cevae/results_lp/%s_%s_%s_node cluster_test.txt'%(FLAGS.dataset,FLAGS.model,FLAGS.measure)
     file = open(filename,'a')
     file.write('%s %f  %f  %f  %f '% (FLAGS.nb_node_samples,FLAGS.alpha,np.mean(mean_mutual_info),np.std(mean_mutual_info),np.mean(mean_time) ))
     file.write('\n')
