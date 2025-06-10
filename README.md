@@ -10,15 +10,26 @@ The replication code of the following paper work is used in the baseline model a
 
 
 
-### GAE and VGAE Model.
+
+## Requirements
+In order to be able to run the code, you need to install the packages contained in `requirements.txt`. We suggest to create a conda environment with
+`conda create --name CEVAE --no-default-packages`, activate it with `conda activate CEVAE`, and install all the dependencies by running (inside `CEVAE` directory):
+
+```bash
+pip install -r requirements.txt
+```
 
 
+## Usage
+To test the program on the given example file, type:  
 
+```bash
+cd CAVAE
+python train.py  
+```
 
+You can find this list by running (inside `code` directory): 
 
-### Graphite-GAE and Graphite-VAGE Model.
-
-
-
-
-
+```bash
+python main.py --help
+```
