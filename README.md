@@ -1,10 +1,12 @@
-# Enhancing Network Reconstruction by Detecting Key Nodes in Complex Networks
-This repository is designed to expose program code and network datasets from the article "Detecting key nodes for network reconstruction in complex networks".
+# Topology-Preserving Network Reconstruction via Centrality Based Subgraph Sampling
+This repository is designed to expose program code and network datasets from the article "Topology-Preserving Network Reconstruction via Centrality Based Subgraph Sampling".
 
 
 
 # Baseline model 
 The replication code of the following paper work is used in the baseline model approach, as follows:
+
+
 
 ### GAE and VGAE Model.
 ```
