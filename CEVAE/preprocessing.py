@@ -1,7 +1,7 @@
 import numpy as np
 import scipy.sparse as sp
 #import tensorflow as tf
-import tensorflow.compat.v1 as tf  # 由于使用了placeholder，所以使用该句及下句语句
+import tensorflow.compat.v1 as tf   
 tf.disable_v2_behavior()
 
 flags = tf.app.flags
