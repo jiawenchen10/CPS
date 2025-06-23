@@ -214,7 +214,7 @@ def calculate_kl_divergence(G1, G2):
     Q = get_degree_distribution(G2)
     # P, Q = align_and_smooth_distributions(P, Q)
     P, Q = align_distributions_with_binning(P,Q)
-    # 确保概率和为1（防止数值误差）
+    # Ensure that the probability sums to 1 (to prevent numerical errors)
     P /= P.sum()
     Q /= Q.sum()
 
@@ -237,7 +237,7 @@ def calculate_js_divergence(G1, G2):
 
 
 def calculate_gini(degrees):
-    """计算度数序列的基尼系数"""
+    """Calculate the Gini coefficient of the degree sequence"""
     if len(degrees) == 0:
         return 0.0
     degrees = sorted(degrees)
@@ -248,7 +248,7 @@ def calculate_gini(degrees):
     return (2 * sum(i * d for i, d in enumerate(degrees, 1))) / (n * total) - (n + 1) / n
 
 def calculate_normalized_entropy(graph):
-    """计算归一化熵（消除规模影响）"""
+    """Calculate normalized entropy (eliminate scale effects)"""
     degrees = [graph.degree(node) for node in graph.nodes()]
     unique_vals, counts = np.unique(degrees, return_counts=True)
     probs = counts / counts.sum()
@@ -258,16 +258,16 @@ def calculate_normalized_entropy(graph):
 
 def calculate_heterogeneity_diff(G1, G2):
     """
-    跨规模图的异质性差异比较（正确实现）
-    G1: 原始图（大图）
-    G2: 子图（小图）
+    Comparison of heterogeneity differences across scaled graphs (correct implementation)
+    G1: original graph (large graph)
+    G2: subgraph (small graph)
     """
-    # 1. 基尼系数直接比较（规模不变性）
+    # 1. Direct comparison of Gini coefficients (scale invariance)
     gini_G1 = calculate_gini([G1.degree(node) for node in G1.nodes()])
     gini_G2 = calculate_gini([G2.degree(node) for node in G2.nodes()])
     gini_diff = abs(gini_G1 - gini_G2)
     
-    # 2. 归一化熵比较
+    # 2. Normalized entropy comparison
     entropy_diff = abs(calculate_normalized_entropy(G1) - calculate_normalized_entropy(G2))
     
     return gini_diff, entropy_diff
