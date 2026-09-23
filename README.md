@@ -12,6 +12,16 @@ Validated on real-world citation, collaboration, and biological networks, the pr
 In order to be able to run the code, you need to install the packages contained in `requirements.txt`. We suggest to create a conda environment with
 `conda create --name CEVAE --no-default-packages`, activate it with `conda activate CEVAE`, and install all the dependencies by running (inside `CEVAE` directory):
 
+
+<p align="center">
+
+  
+<p align="center">
+<img src="figure.png" height = "800" alt="" align=center />
+</p>
+
+
+
 ```bash
 pip install -r requirements.txt
 ```
